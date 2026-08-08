@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  name        String
+  type        PropertyType
+  timezone    String   @default("UTC")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  knowledge   KnowledgeItem[]
+  pricingRules PricingRule[]
+}
+
+model KnowledgeItem {
+  id         String   @id @default(cuid())
+  propertyId String
+  title      String
+  content    String
+  source     String?
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  @@index([propertyId])
+}
+
+model PricingRule {
+  id         String   @id @default(cuid())
+  propertyId String
+  name       String
+  priority   Int      @default(100)
+  enabled    Boolean  @default(true)
+  config     Json
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  @@index([propertyId, enabled])
+}
+
+enum PropertyType {
+  HOTEL
+  HOSTEL
+  GUESTHOUSE
+  OTHER
+}
