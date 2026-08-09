@@ -6,17 +6,74 @@ on:
   pull_request:
     branches: [main]
 
+# Cancels superseded runs (e.g. pushing 3 commits quickly to the same PR)
+# instead of letting them all finish — saves Actions minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege by default. The GITHUB_TOKEN is read-only unless a job
+# explicitly needs more (none of these do).
+permissions:
+  contents: read
+
 jobs:
   quality:
+    name: Lint, format & types
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - run: npm ci
+
       - run: npm run format:check
+
       - run: npm run lint
+
       - run: npm run typecheck
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Only needed if `npm ci` doesn't already trigger this via a
+      # "postinstall": "prisma generate" script in package.json.
+      # If package.json has that postinstall script, delete this step —
+      # running it twice is harmless but wasted time.
+      # Verify: does package.json have "postinstall": "prisma generate"?
+      # If not, uncomment:
+
+      # Speeds up repeat builds by reusing Next.js's incremental compiler
+      # cache across runs when source files haven't changed.
+      - name: Cache Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('**/*.[jt]s', '**/*.[jt]sx') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
       - run: npm run build
+        env:
+          # `prisma generate` / Next.js build-time checks sometimes need
+          # DATABASE_URL to be resolvable even when no real DB connection
+          # happens at build time. Set a real secret if your build script
+          # actually touches the database; otherwise this dummy value is
+          # fine and keeps the build from failing on missing env vars.
+          DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://user:pass@localhost:5432/db' }}
