@@ -58,6 +58,7 @@ jobs:
       # running it twice is harmless but wasted time.
       # Verify: does package.json have "postinstall": "prisma generate"?
       # If not, uncomment:
+      - run: npx prisma generate
 
       # Speeds up repeat builds by reusing Next.js's incremental compiler
       # cache across runs when source files haven't changed.
