@@ -4,4 +4,5 @@ out
 coverage
 .env
 .env.*
+.github/workflows/*.yml
 *.log
